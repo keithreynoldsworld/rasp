@@ -30,7 +30,6 @@ def on_release(key):
     if key == keyboard.Key.space and recording:
         recording = False
         print("Recording stopped.")
-        return False  # Stop listener after releasing the spacebar
 
 # Function to save audio to file
 def save_audio():
@@ -42,27 +41,31 @@ def save_audio():
 
 # Main loop
 def main():
-    while True:
-        print("Press and hold the space bar to start recording. Release to stop.")
+    # Start the keyboard listener in a non-blocking way
+    listener = keyboard.Listener(on_press=on_press, on_release=on_release)
+    listener.start()
 
-        # Start recording in a non-blocking way
-        with sd.InputStream(samplerate=sample_rate, channels=1, dtype='int16', callback=audio_callback):
-            with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
-                listener.join()
+    print("Press and hold the space bar to start recording. Release to stop.")
 
-        # Save the audio once recording is stopped
-        print("Proceeding to save the recorded audio.")
-        save_audio()
+    # Start recording in a non-blocking way
+    with sd.InputStream(samplerate=sample_rate, channels=1, dtype='int16', callback=audio_callback):
+        while True:
+            if not recording and audio_data:
+                # When recording stops, save the audio
+                print("Saving audio...")
+                save_audio()
+                audio_data = []  # Clear audio data after saving
 
-        # Wait for user to press spacebar again to start over or exit
-        print("Press spacebar to record again or press 'Esc' to exit.")
-        with keyboard.Events() as events:
-            for event in events:
-                if isinstance(event, keyboard.Events.Press) and event.key == keyboard.Key.space:
-                    break
-                elif isinstance(event, keyboard.Events.Press) and event.key == keyboard.Key.esc:
-                    print("Exiting...")
-                    exit()
+            # Check for spacebar to start recording again
+            print("Press spacebar to record again or press 'Esc' to exit.")
+            with keyboard.Events() as events:
+                for event in events:
+                    if isinstance(event, keyboard.Events.Press) and event.key == keyboard.Key.space:
+                        break
+                    elif isinstance(event, keyboard.Events.Press) and event.key == keyboard.Key.esc:
+                        print("Exiting...")
+                        listener.stop()
+                        exit()
 
 if __name__ == "__main__":
     main()
